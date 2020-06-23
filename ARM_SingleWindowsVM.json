@@ -1,0 +1,171 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "JabilStgAccType": {
+            "type": "string",
+            "defaultValue": "Standard_LRS",
+            "allowedValues": [
+                "Standard_LRS",
+                "Standard_ZRS",
+                "Standard_GRS",
+                "Standard_RAGRS",
+                "Premium_LRS"
+            ]
+        },
+        "jabilWindowsName": {
+            "type": "string",
+            "minLength": 1
+        },
+        "jabilWindowsAdminUserName": {
+            "type": "string",
+            "minLength": 1
+        },
+        "jabilWindowsAdminPassword": {
+            "type": "securestring"
+        },
+        "jabilWindowsWindowsOSVersion": {
+            "type": "string",
+            "defaultValue": "2012-R2-Datacenter",
+            "allowedValues": [
+                "2008-R2-SP1",
+                "2012-Datacenter",
+                "2012-R2-Datacenter",
+                "Windows-Server-Technical-Preview"
+            ]
+        }
+    },
+    "resources": [
+        {
+            "name": "[variables('JabilStgAccName')]",
+            "type": "Microsoft.Storage/storageAccounts",
+            "location": "[resourceGroup().location]",
+            "apiVersion": "2015-06-15",
+            "dependsOn": [],
+            "tags": {
+                "displayName": "JabilStgAcc"
+            },
+            "properties": {
+                "accountType": "[parameters('JabilStgAccType')]"
+            }
+        },
+        {
+            "name": "[variables('jabilWindowsNicName')]",
+            "type": "Microsoft.Network/networkInterfaces",
+            "location": "[resourceGroup().location]",
+            "apiVersion": "2015-06-15",
+            "dependsOn": [
+                "[concat('Microsoft.Network/virtualNetworks/', 'JabilNetwork')]"
+            ],
+            "tags": {
+                "displayName": "jabilWindowsNic"
+            },
+            "properties": {
+                "ipConfigurations": [
+                    {
+                        "name": "ipconfig1",
+                        "properties": {
+                            "privateIPAllocationMethod": "Dynamic",
+                            "subnet": {
+                                "id": "[variables('jabilWindowsSubnetRef')]"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "name": "[parameters('jabilWindowsName')]",
+            "type": "Microsoft.Compute/virtualMachines",
+            "location": "[resourceGroup().location]",
+            "apiVersion": "2015-06-15",
+            "dependsOn": [
+                "[concat('Microsoft.Storage/storageAccounts/', variables('JabilStgAccName'))]",
+                "[concat('Microsoft.Network/networkInterfaces/', variables('jabilWindowsNicName'))]"
+            ],
+            "tags": {
+                "displayName": "jabilWindows"
+            },
+            "properties": {
+                "hardwareProfile": {
+                    "vmSize": "[variables('jabilWindowsVmSize')]"
+                },
+                "osProfile": {
+                    "computerName": "[parameters('jabilWindowsName')]",
+                    "adminUsername": "[parameters('jabilWindowsAdminUsername')]",
+                    "adminPassword": "[parameters('jabilWindowsAdminPassword')]"
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "[variables('jabilWindowsImagePublisher')]",
+                        "offer": "[variables('jabilWindowsImageOffer')]",
+                        "sku": "[parameters('jabilWindowsWindowsOSVersion')]",
+                        "version": "latest"
+                    },
+                    "osDisk": {
+                        "name": "jabilWindowsOSDisk",
+                        "vhd": {
+                            "uri": "[concat('http://', variables('JabilStgAccName'), '.blob.core.windows.net/', variables('jabilWindowsStorageAccountContainerName'), '/', variables('jabilWindowsOSDiskName'), '.vhd')]"
+                        },
+                        "caching": "ReadWrite",
+                        "createOption": "FromImage"
+                    }
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('jabilWindowsNicName'))]"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "JabilNetwork",
+            "type": "Microsoft.Network/virtualNetworks",
+            "location": "[resourceGroup().location]",
+            "apiVersion": "2015-06-15",
+            "dependsOn": [],
+            "tags": {
+                "displayName": "JabilNetwork"
+            },
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "[variables('JabilNetworkPrefix')]"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "[variables('JabilNetworkSubnet1Name')]",
+                        "properties": {
+                            "addressPrefix": "[variables('JabilNetworkSubnet1Prefix')]"
+                        }
+                    },
+                    {
+                        "name": "[variables('JabilNetworkSubnet2Name')]",
+                        "properties": {
+                            "addressPrefix": "[variables('JabilNetworkSubnet2Prefix')]"
+                        }
+                    }
+                ]
+            }
+        }
+    ],
+    "variables": {
+        "JabilStgAccName": "[concat('JabilStgAcc', uniqueString(resourceGroup().id))]",
+        "jabilWindowsImagePublisher": "MicrosoftWindowsServer",
+        "jabilWindowsImageOffer": "WindowsServer",
+        "jabilWindowsOSDiskName": "jabilWindowsOSDisk",
+        "jabilWindowsVmSize": "Standard_D1",
+        "jabilWindowsVnetID": "[resourceId('Microsoft.Network/virtualNetworks', 'JabilNetwork')]",
+        "jabilWindowsSubnetRef": "[concat(variables('jabilWindowsVnetID'), '/subnets/', variables('JabilNetworkSubnet1Name'))]",
+        "jabilWindowsStorageAccountContainerName": "vhds",
+        "jabilWindowsNicName": "[concat(parameters('jabilWindowsName'), 'NetworkInterface')]",
+        "JabilNetworkPrefix": "10.0.0.0/16",
+        "JabilNetworkSubnet1Name": "Subnet-1",
+        "JabilNetworkSubnet1Prefix": "10.0.0.0/24",
+        "JabilNetworkSubnet2Name": "Subnet-2",
+        "JabilNetworkSubnet2Prefix": "10.0.1.0/24"
+    }
+}
