@@ -10,14 +10,14 @@
     },
     "adminPassword": {
       "type": "securestring",
-      "defaultValue": “P@ssword1234”,
+      "defaultValue": "P@ssword1234",
       "metadata": {
         "description": "Password for the Virtual Machine."
       }
     },
     "dnsLabelPrefix": {
       "type": "string",
-      "defaultValue": “mmwndbp1”,
+      "defaultValue": "mmwndbp1",
       "metadata": {
         "description": "Unique DNS Name for the Public IP used to access the Virtual Machine."
       }
